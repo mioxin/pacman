@@ -113,7 +113,7 @@ func Main() {
 		slog.SetLogLoggerLevel(slog.LevelDebug)
 	}
 
-	TIMEOUT := 300 * time.Second
+	TIMEOUT := 3 * time.Second
 
 	app := &cli.App{
 		Name: "pm",

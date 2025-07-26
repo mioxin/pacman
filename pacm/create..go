@@ -24,12 +24,12 @@ func (pm *PackageManager) CreatePackage(ctx context.Context, configPath string) 
 
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("Create packege canceled: %w", ctx.Err())
+		return fmt.Errorf("Create package canceled: %w", ctx.Err())
 	default:
 	}
 
 	// create .tar.gz file
-	packName, archiveName, err := getArch(configPath)
+	packName, archiveName, err := getArch(ctx, configPath)
 	if err != nil {
 		return fmt.Errorf("failed to create archive for upload: %w", err)
 	}
@@ -39,6 +39,7 @@ func (pm *PackageManager) CreatePackage(ctx context.Context, configPath string) 
 	if err != nil {
 		return fmt.Errorf("failed to connect to SSH server: %w", err)
 	}
+	defer sshClient.Close()
 
 	// Create remote directory
 	remoteDir := fmt.Sprintf("%s/%s", os.Getenv("PACMAN_ROOT_DIR"), packName)
@@ -59,7 +60,8 @@ func (pm *PackageManager) CreatePackage(ctx context.Context, configPath string) 
 
 	client, err := scp.NewClientBySSH(sshClient)
 	if err != nil {
-		fmt.Println("Error creating new SSH session from existing connection", err)
+		slog.Error("Error creating new SSH session from existing connection", "error", err)
+		return fmt.Errorf("error creating new SSH session from existing connection: %w", err)
 	}
 	defer client.Close()
 
@@ -82,7 +84,7 @@ func (pm *PackageManager) CreatePackage(ctx context.Context, configPath string) 
 }
 
 // Create compressed package file
-func getArch(configPath string) (packName, archiveName string, err error) {
+func getArch(ctx context.Context, configPath string) (packName, archiveName string, err error) {
 
 	configData, err := os.ReadFile(configPath)
 	if err != nil {
@@ -117,6 +119,12 @@ func getArch(configPath string) (packName, archiveName string, err error) {
 	defer tw.Close()
 
 	for _, target := range config.Targets {
+		select {
+		case <-ctx.Done():
+			err = fmt.Errorf("Create package canceled: %w", ctx.Err())
+			return
+		default:
+		}
 
 		root := filepath.Dir(target.Path)
 		mask := filepath.Base(target.Path)

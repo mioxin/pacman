@@ -55,31 +55,34 @@ func (pm *PackageManager) UpdatePackages(ctx context.Context, configPath string)
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
 
-	sshClient, err := ssh.Dial("tcp", pm.server, pm.sshConfig)
-	if err != nil {
-		return fmt.Errorf("failed to connect to SSH server: %w", err)
-	}
-	// Create a new SCP client, note that this function might
-	// return an error, as a new SSH session is established using the existing connecton
-
-	client, err := scp.NewClientBySSH(sshClient)
-	if err != nil {
-		fmt.Println("Error creating new SSH session from existing connection", err)
-	}
-	defer client.Close()
-
 	for _, pkg := range config.Packages {
 		wg.Add(1)
 
 		go func(pkg Packet) {
 			defer wg.Done()
-
 			lg := slog.With("package", pkg.Name, "version", pkg.Ver)
+			sshClient, err := ssh.Dial("tcp", pm.server, pm.sshConfig)
+			if err != nil {
+				lg.Error("failed to connect to SSH server", "error", err)
+				return
+			}
+			defer sshClient.Close()
+
+			// Create a new SCP client, note that this function might
+			// return an error, as a new SSH session is established using the existing connecton
+
+			client, err := scp.NewClientBySSH(sshClient)
+			if err != nil {
+				lg.Error("Error creating new SSH session from existing connection", "error", err)
+				return
+			}
+			defer client.Close()
+
 			lg.Info("Update package", "name", pkg.Name, "version", pkg.Ver)
 
 			// Get archive name
 			packPath := fmt.Sprintf("%s/%s", os.Getenv("PACMAN_ROOT_DIR"), pkg.Name)
-			archiveName, err := getArchiveName(ctx, sshClient, packPath, pkg.Name, pkg.Ver) //
+			archiveName, err := getArchiveName(ctx, lg, sshClient, packPath, pkg.Name, pkg.Ver) //
 			if err != nil {
 				lg.Error("Skip packet. Failed to get archive name", "packet", pkg.Name, "error", err)
 				return
@@ -152,12 +155,12 @@ func (pm *PackageManager) UpdatePackages(ctx context.Context, configPath string)
 	return nil
 }
 
-func getArchiveName(ctx context.Context, sshClient *ssh.Client, packPath, packName, ver string) (archName string, err error) {
+func getArchiveName(ctx context.Context, log *slog.Logger, sshClient *ssh.Client, packPath, packName, ver string) (archName string, err error) {
 	slog.Debug("Get archive name", "path", packPath, "ver", ver)
 
 	session, err := sshClient.NewSession()
 	if err != nil {
-		slog.Error("Failed to create SSH session", "error", err)
+		log.Error("Failed to create SSH session", "error", err)
 		return
 	}
 	defer session.Close()
@@ -166,14 +169,14 @@ func getArchiveName(ctx context.Context, sshClient *ssh.Client, packPath, packNa
 	cmd := fmt.Sprintf("ls %s/%s*.tar.gz", packPath, packName)
 	output, err := session.CombinedOutput(cmd)
 	if err != nil {
-		slog.Error("Failed to execute command", "cmd", cmd, "error", err, "output", string(output))
+		log.Error("Failed to execute command", "cmd", cmd, "error", err, "output", string(output))
 		return
 	}
 
 	archNames := strings.TrimSpace(string(output))
 	if archNames == "" {
 		err = fmt.Errorf("no archive found for package %s version %s", packName, ver)
-		slog.Error("No archive found", "error", err)
+		log.Error("No archive found", "error", err)
 		return
 	}
 
@@ -185,7 +188,7 @@ func getArchiveName(ctx context.Context, sshClient *ssh.Client, packPath, packNa
 		v2, _ := getVersionFromArchiveName(b, packName)
 		return compareVersions(v1, v2)
 	})
-	slog.Debug("Sorted archive names", "names", archNamesSlice)
+	log.Debug("Sorted archive names", "names", archNamesSlice)
 	//archName = filepath.Base(archNamesSlice[len(archNamesSlice)-1])
 
 	// check version
@@ -195,16 +198,16 @@ func getArchiveName(ctx context.Context, sshClient *ssh.Client, packPath, packNa
 		actualVer, err := getVersionFromArchiveName(arch, packName)
 		if err != nil {
 			err = fmt.Errorf("archive name %s does not contain valid version: %w", arch, err)
-			slog.Error("Archive name does not contain valid version", "name", arch, "error", err)
+			log.Error("Archive name does not contain valid version", "name", arch, "error", err)
 			archName = ""
 			continue
 		}
 		if checkVersion(ver, actualVer) {
 			archName = arch
 			found = true
-			slog.Debug("Found matching archive name", "name", archName, "version", ver)
+			log.Debug("Found matching archive name", "name", archName, "version", ver)
 		} else {
-			slog.Debug("Archive name does not match version", "name", arch, "version", ver)
+			log.Debug("Archive name does not match version", "name", arch, "version", ver)
 			if found {
 				// If we already found a matching archive, we can stop checking further
 				break

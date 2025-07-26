@@ -3,6 +3,7 @@ package pacm
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"io"
 	"log/slog"
 	"os"
@@ -15,7 +16,7 @@ import (
 func TestGetArch(t *testing.T) {
 	slog.SetLogLoggerLevel(slog.LevelDebug)
 
-	packName, archiveName, err := getArch("./testdata/p.json")
+	packName, archiveName, err := getArch(context.Background(), "./testdata/p.json")
 
 	require.NoError(t, err)
 	assert.EqualValues(t, "packet-1", packName)
