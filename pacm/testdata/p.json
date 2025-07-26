@@ -1,0 +1,10 @@
+{
+  "name": "packet-1",
+  "ver": "1.10",
+  "targets": [
+    {
+      "path": "./testdata/package/*",
+      "exclude": "*.json, *.yml, *.yaml"
+    }
+  ]
+}

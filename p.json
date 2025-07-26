@@ -1,0 +1,13 @@
+{
+  "name": "packet-1",
+  "ver": "1.10",
+  "targets": [
+    {
+      "path": "/home/mmm/dev/pacman/pacm1/*.go"
+    },
+    {
+      "path": "/home/mmm/dev/pacman/pacm/*",
+      "exclude": "*.json, *.yml, *.yaml"
+    }
+  ]
+}
