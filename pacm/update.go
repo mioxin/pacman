@@ -94,6 +94,7 @@ func (pm *PackageManager) UpdatePackages(ctx context.Context, configPath string)
 				lg.Error("failed to create local archive", "error", err)
 				return
 			}
+			defer archiveFile.Close()
 			err = client.CopyFromRemote(ctx, archiveFile, remotePath)
 			if err != nil {
 				archiveFile.Close()
@@ -106,10 +107,10 @@ func (pm *PackageManager) UpdatePackages(ctx context.Context, configPath string)
 				lg.Error("failed to open archive", "error", err)
 				return
 			}
+			defer archiveFile.Close()
 
 			gr, err := gzip.NewReader(archiveFile)
 			if err != nil {
-				archiveFile.Close()
 				lg.Error("failed to create gzip reader", "error", err)
 				return
 			}
@@ -122,33 +123,31 @@ func (pm *PackageManager) UpdatePackages(ctx context.Context, configPath string)
 					break
 				}
 				if err != nil {
-					archiveFile.Close()
 					lg.Error("failed to read tar", "error", err)
 					return
 				}
 
 				outPath := header.Name
 				if err := os.MkdirAll(filepath.Dir(outPath), 0755); err != nil {
-					archiveFile.Close()
 					lg.Error("failed to create directories", "error", err)
 					return
 				}
 
 				outFile, err := os.Create(outPath)
 				if err != nil {
-					archiveFile.Close()
 					lg.Error("failed to create output file", "error", err)
 					return
 				}
 				_, err = io.Copy(outFile, tr)
 				outFile.Close()
 				if err != nil {
-					archiveFile.Close()
 					lg.Error("failed to write output file", "error", err)
 					return
 				}
 			}
-			archiveFile.Close()
+			// TO DO: dependency check
+			// - Read the metadata file
+			// - prepare dependency in packets section by recursive call UpdatePackages
 		}(pkg)
 	}
 
