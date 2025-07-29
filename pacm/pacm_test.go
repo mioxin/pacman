@@ -24,7 +24,9 @@ func TestGetArch(t *testing.T) {
 
 	expectedFilesInfo := make(map[string]int64, 5)
 	expectedFilesInfo["testdata/package/main.go"] = int64(70)
-	expectedFilesInfo["meta-packet-1-1.10.json"] = int64(152)
+	expectedFilesInfo["meta-packet-1-1.10.json"] = int64(186)
+	expectedFilesInfo["testdata/package1/packages.txt"] = int64(182)
+	expectedFilesInfo["testdata/package1/packet.txt"] = int64(241)
 
 	filesInfo := listTarGzContents(t, archiveName)
 	assert.Equal(t, expectedFilesInfo, filesInfo)

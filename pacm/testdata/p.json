@@ -2,6 +2,7 @@
   "name": "packet-1",
   "ver": "1.10",
   "targets": [
+     "./testdata/package1/*.txt",
     {
       "path": "./testdata/package/*",
       "exclude": "*.json, *.yml, *.yaml"

@@ -2,6 +2,8 @@ package pacm
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -23,6 +25,25 @@ type PackageConfig struct {
 type Target struct {
 	Path    string `json:"path" yaml:"path"`
 	Exclude string `json:"exclude,omitempty" yaml:"exclude,omitempty"`
+}
+
+// custom unmarshall prepare string and struct types of target
+func (t *Target) UnmarshalJSON(data []byte) error {
+	type t1 Target
+	var tmp t1
+	if data[0] == 34 {
+		err := json.Unmarshal(data, &t.Path)
+		if err != nil {
+			return errors.New("CustomFloat64: UnmarshalJSON: " + err.Error())
+		}
+	} else {
+		err := json.Unmarshal(data, &tmp)
+		if err != nil {
+			return errors.New("CustomFloat64: UnmarshalJSON: " + err.Error())
+		}
+		*t = Target(tmp)
+	}
+	return nil
 }
 
 type Packet struct {
